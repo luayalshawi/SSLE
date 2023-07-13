@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <plan_manage/planner_manager.h>
 #include <exploration_manager/fast_exploration_manager.h>
 #include <traj_utils/planning_visualization.h>
@@ -50,6 +52,7 @@ void FastExplorationFSM::init(ros::NodeHandle& nh) {
   trigger_sub_ =
       nh.subscribe("/move_base_simple/goal", 1, &FastExplorationFSM::triggerCallback, this);
   odom_sub_ = nh.subscribe("/odom_world", 1, &FastExplorationFSM::odometryCallback, this);
+  exit_points_sub_ = nh.subscribe("/uav1/exit/point", 1, &FastExplorationFSM::exitPointsCallback, this);
 
   replan_pub_ = nh.advertise<std_msgs::Empty>("planning/replan", 10);
   new_pub_ = nh.advertise<std_msgs::Empty>("planning/new", 10);
@@ -59,6 +62,10 @@ void FastExplorationFSM::init(ros::NodeHandle& nh) {
 
 void FastExplorationFSM::FSMCallback(const ros::TimerEvent& e) {
   ROS_INFO_STREAM_THROTTLE(1.0, "[FSM]: state: " << fd_->state_str_[int(state_)]);
+  cout << "Total exits: " << exit_points_.size() << "\n";
+  for(auto &position: exit_points_){
+    cout << "exit point: " << position << "\n";
+  }
 
   switch (state_) {
     case INIT: {
@@ -175,8 +182,21 @@ void FastExplorationFSM::FSMCallback(const ros::TimerEvent& e) {
       ROS_INFO_THROTTLE(1.0, "finish exploration.");
       finish_time_= ros::Time::now();
       if ((finish_time_ - unfinish_time_).toSec() > 3 && fp_->auto_return_){
+        // Find the shortest exit
+        double shortest_distance = 100000; // TODO: max value should be assigned here.
+        planner_manager_->path_finder_->reset();
+        for(auto &exit_position: exit_points_){
+          
+          int result = planner_manager_->path_finder_->search(Vector3d(0,0,1), Vector3d(exit_position.x, exit_position.y, 1));
+          double distance = planner_manager_->path_finder_->pathLength(planner_manager_->path_finder_->getPath());   
+          if(distance < shortest_distance){
+            shortest_distance = distance;
+            fd_->initial_position_ = Vector3d(exit_position.x, exit_position.y, 0.6);
+          }
+        }
+        visualization_->drawSpheres(planner_manager_->path_finder_->getPath(), 0.2, Vector4d(0, 0, 1, 1), "refined_pts", 0, 6);
         transitState(RETURN, "Returning");
-        ROS_INFO_THROTTLE(1.0, "Start Returning Process");
+        ROS_INFO_THROTTLE(1.0, "Start Traveling Process to the shortest exit...");
       }
       break;
     }
@@ -313,10 +333,10 @@ void FastExplorationFSM::visualize() {
   auto ed_ptr = expl_manager_->ed_;
 
   // Draw updated box
-  // Vector3d bmin, bmax;
-  // planner_manager_->edt_environment_->sdf_map_->getUpdatedBox(bmin, bmax);
-  // visualization_->drawBox((bmin + bmax) / 2.0, bmax - bmin, Vector4d(0, 1, 0, 0.3), "updated_box", 0,
-  // 4);
+  Vector3d bmin, bmax;
+  planner_manager_->edt_environment_->sdf_map_->getUpdatedBox(bmin, bmax);
+  visualization_->drawBox((bmin + bmax) / 2.0, bmax - bmin, Vector4d(0, 1, 0, 0.3), "updated_box", 0,
+  4);
 
   // Draw frontier
   static int last_ftr_num = 0;
@@ -449,6 +469,34 @@ void FastExplorationFSM::triggerCallback(const geometry_msgs::PoseStamped& msg) 
   
   fd_->initial_position_ = fd_->odom_pos_;
   ROS_WARN_STREAM("Initial point set to: "<< fd_->initial_position_.transpose() );
+}
+
+void FastExplorationFSM::exitPointsCallback(const geometry_msgs::PoseStamped& msg) {
+  cout << "Recieved new exit point\n" << msg.pose.position << endl;
+  // We try to store only unique exit points.
+  // We calculate the received point with all existing points to find the distance
+  // In case the received point is within 1 meter we skip. 
+  for(auto &exit_position: exit_points_){
+    double p1_x = exit_position.x;
+    double p1_y = exit_position.y;
+
+    double p2_x = msg.pose.position.x;
+    double p2_y = msg.pose.position.y;
+
+    // distance = sqr ( (p1.x - p2.x)^2 + (p1.y - p2.y)^2 )
+    double dist = std::sqrt( std::pow((p1_x - p2_x), 2) + std::pow((p1_y - p2_y), 2) );
+
+    static const float one_meter = 1.0;
+
+    if (dist < one_meter){
+      cout << "skipping this endpoint - distance: " << dist << "\n"; 
+      return;
+    }
+
+  }
+
+  // Add the exit point. Assuming this exit point is unique
+  exit_points_.push_back(msg.pose.position);
 }
 
 

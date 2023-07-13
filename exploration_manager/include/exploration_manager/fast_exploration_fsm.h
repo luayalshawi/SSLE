@@ -6,6 +6,7 @@
 #include <ros/ros.h>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Empty.h>
+#include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <visualization_msgs/Marker.h>
 #include "quadrotor_msgs/PositionCommand.h"
@@ -45,11 +46,14 @@ private:
 
   bool classic_;
 
+  /* Exit points */
+  std::vector<geometry_msgs::Point> exit_points_;
+
   /* ROS utils */
   ros::NodeHandle node_;
   ros::Time finish_time_, unfinish_time_, plan_failed_time_;//calculate time stay in 
   ros::Timer exec_timer_, safety_timer_, vis_timer_, frontier_timer_;
-  ros::Subscriber trigger_sub_, odom_sub_;
+  ros::Subscriber trigger_sub_, odom_sub_, exit_points_sub_;
   ros::Publisher replan_pub_, new_pub_, bspline_pub_, status_pub_;
 
   /* helper functions */
@@ -61,6 +65,7 @@ private:
   void safetyCallback(const ros::TimerEvent& e);
   void frontierCallback(const ros::TimerEvent& e);
   void triggerCallback(const geometry_msgs::PoseStamped& msg);
+  void exitPointsCallback(const geometry_msgs::PoseStamped& msg);
   void odometryCallback(const nav_msgs::OdometryConstPtr& msg);
   void visualize();
   void clearVisMarker();
