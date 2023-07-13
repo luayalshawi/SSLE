@@ -40,11 +40,11 @@ Adapted from [FUEL](https://github.com/HKUST-Aerial-Robotics/FUEL), an excellent
 
 ### Dependencies
 
-This project has been tested on 18.04(ROS Melodic). 
+This project has been tested on 20.04(ROS Noetic). 
 
 Before you build it using `catkin_make`, make sure you meet the following requirements:
 
-1. Basic ROS Environment (recommand ros-melodic-desktop-full)
+1. Basic ROS Environment (recommand ros-noetic-desktop-full)
 
 2. PX4
 
@@ -67,7 +67,7 @@ Before you build it using `catkin_make`, make sure you meet the following requir
 
 4. MavROS
 
-        sudo apt-get install ros-melodic-mavros ros-melodic-mavros-extras
+        sudo apt-get install ros-noetic-mavros ros-noetic-mavros-extras
 
 5. Gazebo Plugins
    
@@ -88,7 +88,7 @@ Before you build it using `catkin_make`, make sure you meet the following requir
 
 8. Other Required Tools 
 
-        sudo apt-get install libarmadillo-dev ros-melodic-nlopt libdw-dev xmlstarlet
+        sudo apt-get install libarmadillo-dev ros-noetic-nlopt libdw-dev xmlstarlet
 
 9.  *Gazebo Models (optional)*
 
